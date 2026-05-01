@@ -8,7 +8,48 @@ function formatDateTime(date) {
   })
 }
 
-function App() {
+function Login() {
+  const [email, setEmail] = useState("")
+  const [sent, setSent] = useState(false)
+
+  const sendMagicLink = async () => {
+    if (!email.trim()) return
+    await supabase.auth.signInWithOtp({ email })
+    setSent(true)
+  }
+
+  return (
+    <div style={{ maxWidth: 420, margin: "0 auto", padding: "48px 24px", fontFamily: "Georgia, serif" }}>
+      <h1 style={{ fontSize: 28, fontWeight: 400, marginBottom: 8, letterSpacing: "-0.5px" }}>My Tasks</h1>
+      <p style={{ color: "#aaa", fontSize: 14, marginBottom: 40 }}>Sign in to access your tasks</p>
+
+      {sent ? (
+        <p style={{ color: "#222", fontSize: 16 }}>✅ Check your email for the magic link!</p>
+      ) : (
+        <div>
+          <input
+            autoFocus
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && sendMagicLink()}
+            placeholder="your@email.com"
+            style={{
+              width: "100%", fontSize: 18, border: "none", outline: "none",
+              borderBottom: "1.5px solid #eee", paddingBottom: 12, marginBottom: 24,
+              fontFamily: "Georgia, serif", boxSizing: "border-box"
+            }}
+          />
+          <button onClick={sendMagicLink} style={{
+            width: "100%", padding: "14px", background: "#222", color: "white",
+            border: "none", borderRadius: 12, fontSize: 15, cursor: "pointer"
+          }}>Send Magic Link</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Tasks({ user }) {
   const [tasks, setTasks] = useState([])
   const [completed, setCompleted] = useState([])
   const [input, setInput] = useState("")
@@ -36,7 +77,7 @@ function App() {
     if (!input.trim()) return
     const { data } = await supabase
       .from("tasks")
-      .insert({ text: input.trim() })
+      .insert({ text: input.trim(), user_id: user.id })
       .select()
       .single()
 
@@ -80,7 +121,12 @@ function App() {
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "48px 24px", fontFamily: "Georgia, serif" }}>
 
       {/* Header */}
-      <h1 style={{ fontSize: 28, fontWeight: 400, marginBottom: 8, letterSpacing: "-0.5px" }}>My Tasks</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 400, letterSpacing: "-0.5px", margin: 0 }}>My Tasks</h1>
+        <button onClick={() => supabase.auth.signOut()} style={{
+          background: "none", border: "none", color: "#ccc", fontSize: 12, cursor: "pointer", marginTop: 6
+        }}>Sign out</button>
+      </div>
       <p style={{ color: "#aaa", fontSize: 14, marginBottom: 40 }}>{tasks.length} remaining</p>
 
       {/* Task List */}
@@ -174,6 +220,18 @@ function App() {
       )}
     </div>
   )
+}
+
+function App() {
+  const [session, setSession] = useState(undefined)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => setSession(session))
+    supabase.auth.onAuthStateChange((_event, session) => setSession(session))
+  }, [])
+
+  if (session === undefined) return null
+  return session ? <Tasks user={session.user} /> : <Login />
 }
 
 export default App
