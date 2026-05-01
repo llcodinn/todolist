@@ -10,12 +10,20 @@ function formatDateTime(date) {
 
 function Login() {
   const [email, setEmail] = useState("")
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
 
-  const sendMagicLink = async () => {
-    if (!email.trim()) return
-    await supabase.auth.signInWithOtp({ email })
-    setSent(true)
+  const signIn = async () => {
+    if (!email.trim() || !password.trim()) return
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setError(error.message)
+  }
+
+  const signUp = async () => {
+    if (!email.trim() || !password.trim()) return
+    const { error } = await supabase.auth.signUp({ email, password })
+    if (error) setError(error.message)
+    else setError("Account created! You can now sign in.")
   }
 
   return (
@@ -23,28 +31,40 @@ function Login() {
       <h1 style={{ fontSize: 28, fontWeight: 400, marginBottom: 8, letterSpacing: "-0.5px" }}>My Tasks</h1>
       <p style={{ color: "#aaa", fontSize: 14, marginBottom: 40 }}>Sign in to access your tasks</p>
 
-      {sent ? (
-        <p style={{ color: "#222", fontSize: 16 }}>✅ Check your email for the magic link!</p>
-      ) : (
-        <div>
-          <input
-            autoFocus
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && sendMagicLink()}
-            placeholder="your@email.com"
-            style={{
-              width: "100%", fontSize: 18, border: "none", outline: "none",
-              borderBottom: "1.5px solid #eee", paddingBottom: 12, marginBottom: 24,
-              fontFamily: "Georgia, serif", boxSizing: "border-box"
-            }}
-          />
-          <button onClick={sendMagicLink} style={{
-            width: "100%", padding: "14px", background: "#222", color: "white",
-            border: "none", borderRadius: 12, fontSize: 15, cursor: "pointer"
-          }}>Send Magic Link</button>
-        </div>
-      )}
+      <input
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="your@email.com"
+        style={{
+          width: "100%", fontSize: 16, border: "none", outline: "none",
+          borderBottom: "1.5px solid #eee", paddingBottom: 12, marginBottom: 20,
+          fontFamily: "Georgia, serif", boxSizing: "border-box"
+        }}
+      />
+      <input
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        onKeyDown={e => e.key === "Enter" && signIn()}
+        placeholder="password"
+        type="password"
+        style={{
+          width: "100%", fontSize: 16, border: "none", outline: "none",
+          borderBottom: "1.5px solid #eee", paddingBottom: 12, marginBottom: 24,
+          fontFamily: "Georgia, serif", boxSizing: "border-box"
+        }}
+      />
+
+      {error && <p style={{ color: "#e55", fontSize: 13, marginBottom: 16 }}>{error}</p>}
+
+      <button onClick={signIn} style={{
+        width: "100%", padding: "14px", background: "#222", color: "white",
+        border: "none", borderRadius: 12, fontSize: 15, cursor: "pointer", marginBottom: 12
+      }}>Sign In</button>
+
+      <button onClick={signUp} style={{
+        width: "100%", padding: "14px", background: "white", color: "#222",
+        border: "1.5px solid #eee", borderRadius: 12, fontSize: 15, cursor: "pointer"
+      }}>Create Account</button>
     </div>
   )
 }
