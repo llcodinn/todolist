@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { supabase } from "./supabase"
 
 function formatDateTime(date) {
-  return date.toLocaleString("en-SG", {
+  return new Date(date).toLocaleString("en-SG", {
     day: "numeric", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit"
   })
@@ -12,27 +13,68 @@ function App() {
   const [completed, setCompleted] = useState([])
   const [input, setInput] = useState("")
   const [showAdd, setShowAdd] = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const addTask = () => {
+  useEffect(() => {
+    fetchTasks()
+  }, [])
+
+  const fetchTasks = async () => {
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: true })
+
+    if (data) {
+      setTasks(data.filter(t => !t.is_completed))
+      setCompleted(data.filter(t => t.is_completed))
+    }
+    setLoading(false)
+  }
+
+  const addTask = async () => {
     if (!input.trim()) return
-    setTasks([...tasks, { text: input.trim(), createdAt: new Date() }])
+    const { data } = await supabase
+      .from("tasks")
+      .insert({ text: input.trim() })
+      .select()
+      .single()
+
+    if (data) setTasks(prev => [...prev, data])
     setInput("")
     setShowAdd(false)
   }
 
-  const completeTask = (i) => {
-    const task = tasks[i]
-    setCompleted(prev => [{ ...task, completedAt: new Date() }, ...prev])
-    setTasks(tasks.filter((_, idx) => idx !== i))
+  const completeTask = async (task) => {
+    const completedAt = new Date().toISOString()
+    await supabase
+      .from("tasks")
+      .update({ is_completed: true, completed_at: completedAt })
+      .eq("id", task.id)
+
+    setTasks(prev => prev.filter(t => t.id !== task.id))
+    setCompleted(prev => [{ ...task, is_completed: true, completed_at: completedAt }, ...prev])
   }
 
-  const uncompleteTask = (i) => {
-    const task = completed[i]
-    setTasks([...tasks, { text: task.text, createdAt: task.createdAt }])
-    setCompleted(completed.filter((_, idx) => idx !== i))
+  const uncompleteTask = async (task) => {
+    await supabase
+      .from("tasks")
+      .update({ is_completed: false, completed_at: null })
+      .eq("id", task.id)
+
+    setCompleted(prev => prev.filter(t => t.id !== task.id))
+    setTasks(prev => [...prev, { ...task, is_completed: false, completed_at: null }])
   }
 
-  const sortedCompleted = [...completed].sort((a, b) => b.completedAt - a.completedAt)
+  const sortedCompleted = [...completed].sort((a, b) =>
+    new Date(b.completed_at) - new Date(a.completed_at)
+  )
+
+  if (loading) return (
+    <div style={{ maxWidth: 420, margin: "0 auto", padding: "48px 24px", fontFamily: "Georgia, serif", color: "#ccc" }}>
+      Loading...
+    </div>
+  )
 
   return (
     <div style={{ maxWidth: 420, margin: "0 auto", padding: "48px 24px", fontFamily: "Georgia, serif" }}>
@@ -42,8 +84,8 @@ function App() {
       <p style={{ color: "#aaa", fontSize: 14, marginBottom: 40 }}>{tasks.length} remaining</p>
 
       {/* Task List */}
-      {tasks.map((task, i) => (
-        <div key={i} onClick={() => completeTask(i)} style={{
+      {tasks.map((task) => (
+        <div key={task.id} onClick={() => completeTask(task)} style={{
           display: "flex", alignItems: "flex-start", gap: 14,
           padding: "14px 0", borderBottom: "1px solid #f0f0f0", cursor: "pointer"
         }}>
@@ -54,7 +96,7 @@ function App() {
           <div>
             <span style={{ fontSize: 16, color: "#222", display: "block" }}>{task.text}</span>
             <span style={{ fontSize: 11, color: "#ccc", marginTop: 3, display: "block" }}>
-              Created {formatDateTime(task.createdAt)}
+              Created {formatDateTime(task.created_at)}
             </span>
           </div>
         </div>
@@ -66,8 +108,8 @@ function App() {
           <p style={{ fontSize: 12, color: "#bbb", letterSpacing: 1, textTransform: "uppercase", marginBottom: 16 }}>
             Completed · {sortedCompleted.length}
           </p>
-          {sortedCompleted.map((task, i) => (
-            <div key={i} onClick={() => uncompleteTask(completed.indexOf(task))} style={{
+          {sortedCompleted.map((task) => (
+            <div key={task.id} onClick={() => uncompleteTask(task)} style={{
               display: "flex", alignItems: "flex-start", gap: 14,
               padding: "14px 0", borderBottom: "1px solid #f9f9f9", cursor: "pointer"
             }}>
@@ -83,7 +125,7 @@ function App() {
                   {task.text}
                 </span>
                 <span style={{ fontSize: 11, color: "#ccc", marginTop: 3, display: "block" }}>
-                  Created {formatDateTime(task.createdAt)} · Completed {formatDateTime(task.completedAt)}
+                  Created {formatDateTime(task.created_at)} · Completed {formatDateTime(task.completed_at)}
                 </span>
               </div>
             </div>
